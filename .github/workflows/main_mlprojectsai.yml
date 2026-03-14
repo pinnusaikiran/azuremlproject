@@ -1,0 +1,63 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy container app to Azure Web App - mlprojectsai
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to container registry
+        uses: docker/login-action@v2
+        with:
+          registry: mlprojectsai.azurecr.io/
+          username: ${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_E42A8BCEAF924366B3404FB560273012 }}
+          password: ${{ secrets.AZUREAPPSERVICE_CONTAINERPASSWORD_C6B5012F0D9F487E9F16C1E6D877C74B }}
+
+      - name: Build and push container image to registry
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: mlprojectsai.azurecr.io/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_E42A8BCEAF924366B3404FB560273012 }}/studentperformance:${{ github.sha }}
+          file: ./Dockerfile
+
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+
+    needs: build
+    
+    steps:
+      
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_4A89641A209F4145909F26F388EFAB77 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_347617466AF94ABDB6E255FFC6EAF915 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_968B74FCBE184AF7B23C20A8B7EF2268 }}
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'mlprojectsai'
+          slot-name: 'Production'
+          images: 'mlprojectsai.azurecr.io/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_E42A8BCEAF924366B3404FB560273012 }}/studentperformance:${{ github.sha }}'
+          
